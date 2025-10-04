@@ -1,10 +1,12 @@
 package app;
 
+import com.mysql.cj.x.protobuf.MysqlxPrepare;
 import db.Database;
 import dao.ReservationDao;
 
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.LocalDate;
@@ -20,64 +22,117 @@ public class DemoApplication {
         try (Connection con = Database.connect()) {
             while (true) {
                 System.out.println("\n=== Hotel Management ===");
-                System.out.println("1) Bootstrap DB (create + sample data)");
-                System.out.println("2) Create reservation (if available)");
-                System.out.println("3) Read reservation by BookingID");
-                System.out.println("4) Update reservation dates");
-                System.out.println("5) Delete reservation");
-                System.out.println("6) List available rooms (by hotel + dates)");
+                //System.out.println("1) Bootstrap DB (create + sample data)");
+                System.out.println("1) Create reservation (if available)");
+                System.out.println("2) Read reservation by BookingID");
+                System.out.println("3) Update reservation dates");
+                System.out.println("4) Delete reservation");
+                System.out.println("5) List available rooms (by hotel + dates)");
                 System.out.println("0) Exit");
                 System.out.print("Choose: ");
                 String choice = in.nextLine().trim();
 
                 try {
                     switch (choice) {
+//                        case "1" -> {
+//                            // scripts
+//
+//                            // old file path didn't work
+//                            // Database.runSqlFile(con, Path.of("sql/projectdeliverable3_group3_create.sql"));  // creates DB & tables
+//                            // Database.runSqlFile(con, Path.of("sql/projectdeliverable3_group3_insert.sql"));  // inserts sample data
+//
+//                            // testing if create is the issue
+//                            System.out.println("Running CREATE script...");
+//                            Database.runSqlResource(con, "/sql/projectdeliverable3_group3_create.sql");
+//                            System.out.println("CREATE complete.");
+//
+//                            //testing if insert is the issue
+//                            System.out.println("Running INSERT script...");
+//                            Database.runSqlResource(con, "/sql/projectdeliverable3_group3_insert.sql");
+//                            System.out.println("INSERT complete. Sample data loaded.");
+//
+//                            Database.runSqlResourceSelects(con, "/sql/projectdeliverable3_group3_select.sql");
+//                            System.out.println("Database created and sample data loaded.");
+//                        }
                         case "1" -> {
-                            // scripts
+                            // GET HOTEL ID
+                            String hotel = null;
+                            String room = null;
+                            LocalDate checkin = null;
+                            LocalDate checkout = null;
+                            double cpn = 0;
 
-                            // old file path didn't work
-                            // Database.runSqlFile(con, Path.of("sql/projectdeliverable3_group3_create.sql"));  // creates DB & tables
-                            // Database.runSqlFile(con, Path.of("sql/projectdeliverable3_group3_insert.sql"));  // inserts sample data
-
-                            // testing if create is the issue
-                            System.out.println("Running CREATE script...");
-                            Database.runSqlResource(con, "/sql/projectdeliverable3_group3_create.sql");
-                            System.out.println("CREATE complete.");
-
-                            //testing if insert is the issue
-                            System.out.println("Running INSERT script...");
-                            Database.runSqlResource(con, "/sql/projectdeliverable3_group3_insert.sql");
-                            System.out.println("INSERT complete. Sample data loaded.");
-
-                            Database.runSqlResourceSelects(con, "/sql/projectdeliverable3_group3_select.sql");
-                            System.out.println("Database created and sample data loaded.");
-                        }
-                        case "2" -> {
-                            //System.out.print("BookingID: ");
-                            //String b = in.nextLine();
-                            System.out.print("HotelID: ");
-                            String h = in.nextLine();
-                            System.out.print("RoomNumber: ");
-                            String r = in.nextLine();
-                            System.out.print("CheckIn (YYYY-MM-DD): ");
-                            LocalDate ci = LocalDate.parse(in.nextLine());
-                            System.out.print("CheckOut (YYYY-MM-DD): ");
-                            LocalDate co = LocalDate.parse(in.nextLine());
-                            System.out.print("CostPerNight: ");
-                            double cpn = Double.parseDouble(in.nextLine());
+                            try {
+                                System.out.print("HotelID: ");
+                                hotel = in.nextLine();
+                                PreparedStatement stmt = con.prepareStatement("SELECT hotelid FROM hotel WHERE hotelid = ?");
+                                stmt.setString(1, hotel);
+                                ResultSet rs = stmt.executeQuery();
+                                if (!rs.next()) {
+                                    System.out.println("Hotel ID does not exist. Please try again.");
+                                    break;
+                                }
+                            } catch (Exception e) {
+                                System.out.println("Invalid SQL: " + e.getMessage());
+                                break;
+                            }
+                            // GET ROOM NUMBER
+                            try {
+                                System.out.print("RoomNumber: ");
+                                room = in.nextLine();
+                                PreparedStatement stmt = con.prepareStatement("SELECT RoomNumber FROM room WHERE RoomNumber = ?");
+                                stmt.setString(1, room);
+                                ResultSet rs = stmt.executeQuery();
+                                if (!rs.next()) {
+                                    System.out.println("Room number does not exist. Please try again.");
+                                    break;
+                                }
+                            } catch (Exception e) {
+                                System.out.println("RoomNumber does not exist: " + e.getMessage());
+                                break;
+                            }
+                            // CHECK DATE AVAILABILITY
+                            try {
+                                System.out.print("CheckIn (YYYY-MM-DD): ");
+                                checkin = LocalDate.parse(in.nextLine());
+                                System.out.print("CheckOut (YYYY-MM-DD): ");
+                                checkout = LocalDate.parse(in.nextLine());
+                                PreparedStatement stmt = con.prepareStatement("select * from reservation where (CheckInDate BETWEEN ? AND ?) OR CheckOutDate BETWEEN ? AND ?;");
+                                stmt.setString(1, checkin.toString());
+                                stmt.setString(2, checkout.toString());
+                                stmt.setString(3, checkin.toString());
+                                stmt.setString(4, checkout.toString());
+                                ResultSet rs = stmt.executeQuery();
+                                if (rs.next()) {
+                                    System.out.println("Date's are not available. Please try again.");
+                                    break;
+                                }
+                            } catch (Exception e) {
+                                System.out.println("Invalid date format, please use YYYY-MM-DD format: " + e.getMessage());
+                                break;
+                            }
+                            // COST PER NIGHT
+                            try {
+                                System.out.print("CostPerNight: ");
+                                cpn = Double.parseDouble(in.nextLine());
+                            } catch (Exception e) {
+                                System.out.println("Invalid cost per night:" + e.getMessage());
+                                break;
+                            }
+                            // GOVERNMENT ID
                             System.out.print("GovernmentID: ");
                             String gid = in.nextLine();
 
-                            boolean ok = dao.createReservationIfAvailable(con, h, r, ci, co, cpn, gid);
+                            boolean ok = dao.createReservationIfAvailable(con, hotel, room, checkin, checkout, cpn, gid);
                             System.out.println(ok ? "Created." : "Room not available or not found.");
                         }
-                        case "3" -> {
+                        case "2" -> {
                             System.out.print("BookingID: ");
                             String b = in.nextLine();
                             var res = dao.getById(con, b);
-                            System.out.println(res.map(Object::toString).orElse("Not found"));
+                            System.out.println(res.map(Object::toString).orElse("BookingID does not exist."));
                         }
-                        case "4" -> {
+                        case "3" -> {
                             System.out.print("BookingID: ");
                             String b = in.nextLine();
                             System.out.print("New CheckIn: ");
@@ -87,13 +142,13 @@ public class DemoApplication {
                             boolean ok = dao.updateDates(con, b, ni, no);
                             System.out.println(ok ? "Updated." : "Conflict or booking not found.");
                         }
-                        case "5" -> {
+                        case "4" -> {
                             System.out.print("BookingID: ");
                             String b = in.nextLine();
                             int n = dao.delete(con, b);
                             System.out.println(n == 1 ? "Deleted." : "Not found.");
                         }
-                        case "6" -> {
+                        case "5" -> {
                             System.out.print("HotelID: ");
                             String h = in.nextLine();
                             System.out.print("CheckIn: ");

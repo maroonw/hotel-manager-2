@@ -9,9 +9,9 @@ import java.io.*;
 
 public final class Database {
 
-    static String password = "root";
+    static String password = "Boomtown225!";
     static String user = "root";
-    static String port = "3333";
+    static String port = "3306";
 
     private Database() {
     }
@@ -126,7 +126,7 @@ public final class Database {
     // if schema doesn't exist
     public static Connection connectServer() throws SQLException {
         return DriverManager.getConnection(
-                "jdbc:mysql://127.0.0.1:3333/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+                "jdbc:mysql://127.0.0.1:3306/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
                 user, password);
     }
 
