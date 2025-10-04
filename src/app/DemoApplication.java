@@ -124,7 +124,7 @@ public class DemoApplication {
                 rs.next();
                 System.out.println("DB OK -> " + rs.getInt(1));
             } catch (Exception e) {
-                System.err.println("\n*** DB SANITY CHECK FAILED ***");
+                System.err.println("\n*** DB CONNECTION CHECK FAILED ***");
                 System.err.println("Cause: " + e.getClass().getSimpleName() + " - " + e.getMessage());
                 System.exit(1);
             }

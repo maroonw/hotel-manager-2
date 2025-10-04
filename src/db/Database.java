@@ -126,7 +126,7 @@ public final class Database {
     // if schema doesn't exist
     public static Connection connectServer() throws SQLException {
         return DriverManager.getConnection(
-                "jdbc:mysql://127.0.0.1:3333/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+                "jdbc:mysql://127.0.0.1:" + port + "/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
                 user, password);
     }
 
