@@ -1,7 +1,7 @@
 This program was run using Java 24 and MySQL Workbench.
 
 
-Setup
+Setup:
 
 Unzip the program folder and open in your favorite Java IDE. IntelliJ works well.
 
@@ -18,7 +18,16 @@ The first time you run the program it will come to the main menu.
 
 Select 1. To seed the database.
 
-From there you can select whatever item you want from the menu to conduct insert, update, delete, and querying functionalities.
+From there you can select whatever item you want from the menu to conduct insert, update, delete,
+and querying functionalities.
+
+Program Explanation:
+
+DemoApplication is what the user will see while interacting with the program. It displays the menus and gives
+the requested information about what the queries did. The ReseravationDao file is the Data Access Object. It acts
+to a controller in that it allows the seperation of the application and the database layer. The database layer
+consists of the Database file that translates SQL to Java visa-versa and the actual sql files that we use to
+access the SQL server.
 
 Video URL
 
