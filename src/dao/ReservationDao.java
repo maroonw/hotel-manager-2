@@ -19,6 +19,8 @@ public class ReservationDao {
     }
 
     // Full version: performs availability check + insert using given bookingId
+    // this gets used if BookingId is specified
+    // not used currently, but kept in case we need it in the future
     public boolean createReservationIfAvailable(
             Connection con,
             String bookingId, String hotelId, String roomNumber,

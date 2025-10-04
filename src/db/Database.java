@@ -47,6 +47,7 @@ public final class Database {
     }
 
     // run sql resources in /resources/sql folder insert and create
+    // we use this mainly for populating the data using the queries we started with
     public static void runSqlResource(Connection con, String resourcePath) throws Exception {
         try (var in = Database.class.getResourceAsStream(resourcePath)) {
             if (in == null) throw new FileNotFoundException("Classpath resource not found: " + resourcePath);
@@ -87,6 +88,8 @@ public final class Database {
 
 
     // Only needed if you want to execute SELECT statements from a script:
+    // you can select through java or through the select query, this is the
+    // functionallity for running it through the scripts we started with
     public static void runSqlResourceSelects(Connection con, String resourcePath) throws Exception {
         try (var in = Database.class.getResourceAsStream(resourcePath)) {
             if (in == null) throw new FileNotFoundException("Classpath resource not found: " + resourcePath);
@@ -117,6 +120,7 @@ public final class Database {
     }
 
     // if schema exists already
+    // needed for populating data, eliminates the need to delete everything
     public static Connection connectAppDb() throws SQLException {
         return DriverManager.getConnection(
                 "jdbc:mysql://127.0.0.1:"+ port + "/HOTEL_MANAGEMENT?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",

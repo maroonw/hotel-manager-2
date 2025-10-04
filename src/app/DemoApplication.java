@@ -49,10 +49,12 @@ public class DemoApplication {
                             Database.runSqlResource(con, "/sql/projectdeliverable3_group3_insert.sql");
                             System.out.println("INSERT complete. Sample data loaded.");
 
+                            // not needed, but doesn't hurt anything
                             Database.runSqlResourceSelects(con, "/sql/projectdeliverable3_group3_select.sql");
                             System.out.println("Database created and sample data loaded.");
                         }
                         case "2" -> {
+                            //setup auto generating of BookingId to keep from having duplicates
                             //System.out.print("BookingID: ");
                             //String b = in.nextLine();
                             System.out.print("HotelID: ");
