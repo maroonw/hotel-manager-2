@@ -9,9 +9,9 @@ import java.io.*;
 
 public final class Database {
 
-    static String password = "root";
+    static String password = "Bottle33!";
     static String user = "root";
-    static String port = "3333";
+    static String port = "3306";
 
     private Database() {
     }
