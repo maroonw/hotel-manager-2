@@ -39,19 +39,30 @@ public class DemoApplication {
                             // Database.runSqlFile(con, Path.of("sql/projectdeliverable3_group3_create.sql"));  // creates DB & tables
                             // Database.runSqlFile(con, Path.of("sql/projectdeliverable3_group3_insert.sql"));  // inserts sample data
 
-                            // testing if create is the issue
-                            System.out.println("Running CREATE script...");
-                            Database.runSqlResource(con, "/sql/projectdeliverable3_group3_create.sql");
-                            System.out.println("CREATE complete.");
+                            // testing if create is the issue, moved resources due to class requirements for src only
+                            // System.out.println("Running CREATE script...");
+                            // Database.runSqlResource(con, "/sql/projectdeliverable3_group3_create.sql");
+                            // System.out.println("CREATE complete.");
 
-                            //testing if insert is the issue
-                            System.out.println("Running INSERT script...");
-                            Database.runSqlResource(con, "/sql/projectdeliverable3_group3_insert.sql");
-                            System.out.println("INSERT complete. Sample data loaded.");
+                            //testing if insert is the issue, moved resources due to class requirements for src only
+                            // System.out.println("Running INSERT script...");
+                            // Database.runSqlResource(con, "/sql/projectdeliverable3_group3_insert.sql");
+                            // System.out.println("INSERT complete. Sample data loaded.");
 
-                            // not needed, but doesn't hurt anything
-                            Database.runSqlResourceSelects(con, "/sql/projectdeliverable3_group3_select.sql");
-                            System.out.println("Database created and sample data loaded.");
+                            // not needed, but doesn't hurt anything, moved resources due to class requirements for src only
+                            // Database.runSqlResourceSelects(con, "/sql/projectdeliverable3_group3_select.sql");
+                            // System.out.println("Database created and sample data loaded.");
+
+                            var createPath = java.nio.file.Paths.get("src", "resources",
+                                    "sql", "projectdeliverable3_group3_create.sql").toAbsolutePath();
+                            var insertPath = java.nio.file.Paths.get("src", "resources",
+                                    "sql", "projectdeliverable3_group3_insert.sql").toAbsolutePath();
+
+                            System.out.println("CREATE @ " + createPath);
+                            db.Database.runSqlFile(con, createPath);
+
+                            System.out.println("INSERT @ " + insertPath);
+                            db.Database.runSqlFile(con, insertPath);
                         }
                         case "2" -> {
                             //setup auto generating of BookingId to keep from having duplicates

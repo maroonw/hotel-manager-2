@@ -9,7 +9,7 @@ import java.io.*;
 
 public final class Database {
 
-    static String password = "Bottle33!";
+    static String password = "root";
     static String user = "root";
     static String port = "3306";
 
@@ -50,7 +50,7 @@ public final class Database {
     // we use this mainly for populating the data using the queries we started with
     public static void runSqlResource(Connection con, String resourcePath) throws Exception {
         try (var in = Database.class.getResourceAsStream(resourcePath)) {
-            if (in == null) throw new FileNotFoundException("Classpath resource not found: " + resourcePath);
+            if (in == null) throw new FileNotFoundException("Classpath resources not found: " + resourcePath);
 
             String raw = new String(in.readAllBytes());
 
@@ -92,7 +92,7 @@ public final class Database {
     // functionallity for running it through the scripts we started with
     public static void runSqlResourceSelects(Connection con, String resourcePath) throws Exception {
         try (var in = Database.class.getResourceAsStream(resourcePath)) {
-            if (in == null) throw new FileNotFoundException("Classpath resource not found: " + resourcePath);
+            if (in == null) throw new FileNotFoundException("Classpath resources not found: " + resourcePath);
             String sql = new String(in.readAllBytes());
             for (String stmt : sql.split(";")) {
                 String s = stmt.trim();

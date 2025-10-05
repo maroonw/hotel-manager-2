@@ -8,6 +8,9 @@ Unzip the program folder and open in your favorite Java IDE. IntelliJ works well
 To run the program first start MySQL Workbench and get a running instance of a server on your computer.
 Note the user, password, and port that you select.
 
+SQL scripts are now under src/resources/sql due to class requirements. The dedicated resources root cannot be
+of the src folder.
+
 Go to the file /src/db/Database.
 
 At the top of the file you must change the 3 strings password, user, port to match your configuration.
