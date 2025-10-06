@@ -13,7 +13,11 @@ of the src folder.
 
 Go to the file /src/db/Database.
 
-At the top of the file you must change the 3 strings password, user, port to match your configuration.
+At the top of the file you must change the 3 strings:
+    password,
+    user,
+    port
+to match your configuration. Typically it is "root", "root", and 3306, but your's may vary.
 
 Once you have done that compile and run the program.
 
@@ -31,6 +35,15 @@ the requested information about what the queries did. The ReseravationDao file i
 to a controller in that it allows the seperation of the application and the database layer. The database layer
 consists of the Database file that translates SQL to Java visa-versa and the actual sql files that we use to
 access the SQL server.
+
+I reordered the helper functions in the DAO to match the case use from the application. This should make it easier
+to follow along.
+
+Error Notes:
+
+You shouldn't, but if you do get the Error "Datbase already exists", go to your MySQL Workbench and run:
+    DROP DATABASE hotel_management;
+Then rerun the Option 1 seed.
 
 Video URL
 

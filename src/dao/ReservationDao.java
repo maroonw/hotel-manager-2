@@ -6,6 +6,66 @@ import java.util.*;
 
 public class ReservationDao {
 
+
+    // Case 6 & 2 helpers for Availabiltiy and Pricing
+
+    // AVAILABLE ROOMS for date range
+    public List<Map<String,String>> listAvailableRooms(Connection con, String hotelId, LocalDate in, LocalDate out) throws SQLException {
+        String sql = """
+            SELECT r.RoomNumber, r.RoomType, r.Floor
+            FROM ROOM r
+            WHERE r.HotelID = ?
+              AND NOT EXISTS (
+                SELECT 1
+                FROM RESERVATION x
+                WHERE x.HotelID   = r.HotelID
+                  AND x.RoomNumber= r.RoomNumber
+                  AND ? < x.CheckOutDate
+                  AND x.CheckInDate < ?
+              )
+            ORDER BY r.RoomType, r.Floor, r.RoomNumber
+        """;
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, hotelId);
+            ps.setDate(2, java.sql.Date.valueOf(in));
+            ps.setDate(3, java.sql.Date.valueOf(out));
+            try (ResultSet rs = ps.executeQuery()) {
+                List<Map<String,String>> list = new ArrayList<>();
+                while (rs.next()) {
+                    Map<String,String> m = new LinkedHashMap<>();
+                    m.put("RoomNumber", rs.getString("RoomNumber"));
+                    m.put("RoomType", rs.getString("RoomType"));
+                    m.put("Floor", String.valueOf(rs.getInt("Floor")));
+                    list.add(m);
+                }
+                return list;
+            }
+        }
+    }
+
+    //reservation rate helper. It asks for a rate if there hasn't been one before
+    // instead of asking for a rate for a room every single time.
+
+    public Optional<Double> suggestRatePerNight(Connection con, String hotelId, String roomNumber) throws SQLException {
+        String sql = """
+        SELECT CostPerNight
+        FROM RESERVATION
+        WHERE HotelID = ? AND RoomNumber = ?
+        ORDER BY CheckInDate DESC
+        LIMIT 1
+    """;
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, hotelId);
+            ps.setString(2, roomNumber);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return Optional.of(rs.getDouble(1));
+                return Optional.empty();
+            }
+        }
+    }
+
+    // Case 2 helpers in order -- easier to walk through and explain
+    // Case 2 - create reservation
     // Auto-ID version: generate B# and delegate
     public boolean createReservationIfAvailable(
             Connection con,
@@ -87,6 +147,64 @@ public class ReservationDao {
         }
     }
 
+    // case 2 - helpers to handle guest lookup / creation. Needed due to db design.
+
+    //couldn't create a reservation without a guest becuse it was a foreign key. Error in
+    // database design
+
+    public boolean guestExists(Connection con, String governmentId) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement(
+                "SELECT 1 FROM GUEST WHERE GovernmentID = ?")) {
+            ps.setString(1, governmentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    public int insertGuestMinimal(Connection con, String governmentId, String name) throws SQLException {
+        String sql = """
+        INSERT INTO GUEST (GovernmentID, Name, Address, Email, PhoneNumber, CardNumber)
+        VALUES (?, ?, 'N/A', 'na@example.com', '000-000-0000', '4000 0000 0000 0000')
+    """;
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, governmentId);
+            ps.setString(2, name);
+            return ps.executeUpdate(); // 1 if inserted
+        }
+    }
+
+    // case 2 - send email to guest - not needed, but we wanted to show we were thinking about next steps
+
+    // find bookingId
+    public Optional<String> findBookingIdFor(Connection con,
+                                             String hotelId, String roomNumber,
+                                             LocalDate checkIn, LocalDate checkOut,
+                                             String governmentId) throws SQLException {
+
+        String sql = """
+        SELECT BookingID
+        FROM RESERVATION
+        WHERE HotelID = ? AND RoomNumber = ?
+            AND CheckInDate = ? AND CheckOutDate = ?
+                AND GovernmentID = ?
+        ORDER BY CAST(SUBSTRING(BookingID,2) AS UNSIGNED) DESC
+        LIMIT 1
+    """;
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, hotelId);
+            ps.setString(2, roomNumber);
+            ps.setDate(3, java.sql.Date.valueOf(checkIn));
+            ps.setDate(4, java.sql.Date.valueOf(checkOut));
+            ps.setString(5, governmentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(rs.getString(1)) : Optional.empty();
+            }
+        }
+    }
+
+    //CASE 3 - Read Reservations
+
 
     // READ one reservation with joins
     public Optional<Map<String, Object>> getById(Connection con, String bookingId) throws SQLException {
@@ -120,6 +238,8 @@ public class ReservationDao {
             }
         }
     }
+
+    //CASE 4 - Update Reservation Dates
 
     // UPDATE dates (recheck availability against other bookings)
     public boolean updateDates(Connection con, String bookingId, LocalDate newIn, LocalDate newOut) throws SQLException {
@@ -170,6 +290,8 @@ public class ReservationDao {
         }
     }
 
+    //CASE 5 - Delete reservation
+
     // DELETE
     public int delete(Connection con, String bookingId) throws SQLException {
         try (PreparedStatement ps = con.prepareStatement(
@@ -179,39 +301,7 @@ public class ReservationDao {
         }
     }
 
-    // AVAILABLE ROOMS for date range
-    public List<Map<String,String>> listAvailableRooms(Connection con, String hotelId, LocalDate in, LocalDate out) throws SQLException {
-        String sql = """
-            SELECT r.RoomNumber, r.RoomType, r.Floor
-            FROM ROOM r
-            WHERE r.HotelID = ?
-              AND NOT EXISTS (
-                SELECT 1
-                FROM RESERVATION x
-                WHERE x.HotelID   = r.HotelID
-                  AND x.RoomNumber= r.RoomNumber
-                  AND ? < x.CheckOutDate
-                  AND x.CheckInDate < ?
-              )
-            ORDER BY r.RoomType, r.Floor, r.RoomNumber
-        """;
-        try (PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, hotelId);
-            ps.setDate(2, java.sql.Date.valueOf(in));
-            ps.setDate(3, java.sql.Date.valueOf(out));
-            try (ResultSet rs = ps.executeQuery()) {
-                List<Map<String,String>> list = new ArrayList<>();
-                while (rs.next()) {
-                    Map<String,String> m = new LinkedHashMap<>();
-                    m.put("RoomNumber", rs.getString("RoomNumber"));
-                    m.put("RoomType", rs.getString("RoomType"));
-                    m.put("Floor", String.valueOf(rs.getInt("Floor")));
-                    list.add(m);
-                }
-                return list;
-            }
-        }
-    }
+    //Shared - used mainly for creating a booking, ensures no duplicate booking id is created
 
     // creating the next booking ID from the counter table
     // this makes sure that no booking IDs are the same
@@ -231,77 +321,12 @@ public class ReservationDao {
         }
     }
 
-    //reservation rate helper. It asks for a rate if there hasn't been one before
-    // instead of asking for a rate for a room every single time.
 
-    public Optional<Double> suggestRatePerNight(Connection con, String hotelId, String roomNumber) throws SQLException {
-        String sql = """
-        SELECT CostPerNight
-        FROM RESERVATION
-        WHERE HotelID = ? AND RoomNumber = ?
-        ORDER BY CheckInDate DESC
-        LIMIT 1
-    """;
-        try (PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, hotelId);
-            ps.setString(2, roomNumber);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return Optional.of(rs.getDouble(1));
-                return Optional.empty();
-            }
-        }
-    }
 
-    //couldn't create a reservation without a guest becuse it was a foreign key. Error in
-    // database design
 
-    public boolean guestExists(Connection con, String governmentId) throws SQLException {
-        try (PreparedStatement ps = con.prepareStatement(
-                "SELECT 1 FROM GUEST WHERE GovernmentID = ?")) {
-            ps.setString(1, governmentId);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
-        }
-    }
 
-    public int insertGuestMinimal(Connection con, String governmentId, String name) throws SQLException {
-        String sql = """
-        INSERT INTO GUEST (GovernmentID, Name, Address, Email, PhoneNumber, CardNumber)
-        VALUES (?, ?, 'N/A', 'na@example.com', '000-000-0000', '4000 0000 0000 0000')
-    """;
-        try (PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, governmentId);
-            ps.setString(2, name);
-            return ps.executeUpdate(); // 1 if inserted
-        }
-    }
 
-    // find bookingId
-    public Optional<String> findBookingIdFor(Connection con,
-                                             String hotelId, String roomNumber,
-                                             LocalDate checkIn, LocalDate checkOut,
-                                             String governmentId) throws SQLException {
 
-        String sql = """
-        SELECT BookingID
-        FROM RESERVATION
-        WHERE HotelID = ? AND RoomNumber = ?
-            AND CheckInDate = ? AND CheckOutDate = ?
-                AND GovernmentID = ?
-        ORDER BY CAST(SUBSTRING(BookingID,2) AS UNSIGNED) DESC
-        LIMIT 1
-    """;
-        try (PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, hotelId);
-            ps.setString(2, roomNumber);
-            ps.setDate(3, java.sql.Date.valueOf(checkIn));
-            ps.setDate(4, java.sql.Date.valueOf(checkOut));
-            ps.setString(5, governmentId);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Optional.of(rs.getString(1)) : Optional.empty();
-            }
-        }
-    }
+
 }
 
