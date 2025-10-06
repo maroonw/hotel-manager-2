@@ -32,6 +32,10 @@ public class DemoApplication {
 
                 try {
                     switch (choice) {
+
+                        // this seeds data if this is the first time running the application
+                        // you can run it if it's already been run and it will just stop and
+                        // say duplicates
                         case "1" -> {
                             // scripts
 
@@ -65,24 +69,158 @@ public class DemoApplication {
                             db.Database.runSqlFile(con, insertPath);
                         }
                         case "2" -> {
-                            //setup auto generating of BookingId to keep from having duplicates
-                            //System.out.print("BookingID: ");
-                            //String b = in.nextLine();
-                            System.out.print("HotelID: ");
-                            String h = in.nextLine();
-                            System.out.print("RoomNumber: ");
-                            String r = in.nextLine();
-                            System.out.print("CheckIn (YYYY-MM-DD): ");
-                            LocalDate ci = LocalDate.parse(in.nextLine());
-                            System.out.print("CheckOut (YYYY-MM-DD): ");
-                            LocalDate co = LocalDate.parse(in.nextLine());
-                            System.out.print("CostPerNight: ");
-                            double cpn = Double.parseDouble(in.nextLine());
-                            System.out.print("GovernmentID: ");
-                            String gid = in.nextLine();
 
-                            boolean ok = dao.createReservationIfAvailable(con, h, r, ci, co, cpn, gid);
-                            System.out.println(ok ? "Created." : "Room not available or not found.");
+                             /*  This didn't flow very well, redid. Left in to show iterations.
+                             *setup auto generating of BookingId to keep from having duplicates
+                             *System.out.print("BookingID: ");
+                             *String b = in.nextLine();
+                             *System.out.print("HotelID: ");
+                             *String h = in.nextLine();
+                             *System.out.print("RoomNumber: ");
+                             *String r = in.nextLine();
+                             *System.out.print("CheckIn (YYYY-MM-DD): ");
+                             *LocalDate ci = LocalDate.parse(in.nextLine());
+                             *System.out.print("CheckOut (YYYY-MM-DD): ");
+                             *LocalDate co = LocalDate.parse(in.nextLine());
+                             *System.out.print("CostPerNight: ");
+                             *double cpn = Double.parseDouble(in.nextLine());
+                             *System.out.print("GovernmentID: ");
+                             *String gid = in.nextLine();
+                             *
+                             *boolean ok = dao.createReservationIfAvailable(con, h, r, ci, co, cpn, gid);
+                             *System.out.println(ok ? "Created." : "Room not available or not found.");
+                             */
+
+                            // set hotel and date wanted
+                            System.out.print("Enter hotel ID: ");
+                            String h = in.nextLine().trim();
+
+                            System.out.print("Check in date YYYY-MM-DD: ");
+                            LocalDate ci = LocalDate.parse(in.nextLine().trim());
+
+                            System.out.print("Check out date YYYY-MM-DD: ");
+                            LocalDate co = LocalDate.parse(in.nextLine().trim());
+
+                            if (!co.isAfter(ci)) {
+                                System.out.println("checkout must be after check in");
+                                break;
+                            }
+
+                            // get rooms available
+                            var rooms = dao.listAvailableRooms(con, h, ci, co);
+                            if (rooms.isEmpty()) {
+                                System.out.println("No rooms available");
+                                break;
+                            }
+
+                            // show rooms and rates
+                            System.out.println("\nRooms Available");
+                            List<String> roomNumbers = new ArrayList<>();
+                            for (int i = 0; i < rooms.size(); i++) {
+                                var r = rooms.get(i);
+                                String roomNum = r.get("RoomNumber");
+                                roomNumbers.add(roomNum);
+
+                                var oldRate = dao.suggestRatePerNight(con, h, roomNum);
+                                String rateTxt = oldRate.map(x -> String.format("$%.2f", x)).orElse("-");
+
+                                System.out.printf("%2d) Room %s | Type %s | Floor: %s | Suggested: %s%n",
+                                        (i + 1), roomNum, r.getOrDefault("RoomType", "?"),
+                                        r.getOrDefault("Floor", "?"), rateTxt);
+                            }
+
+                            // select room
+                            System.out.print("\nChoose Room Number (e.g., R22): ");
+                            String roomNum = in.nextLine().trim();
+
+                            boolean inList = false;
+                            for (String rn : roomNumbers) {
+                                if (rn.equalsIgnoreCase(roomNum)) {
+                                    roomNum = rn;   // normalize to exact case from list
+                                    inList = true;
+                                    break;
+                                }
+                            }
+                            if (!inList) {
+                                System.out.println("That room isn't in the available list.");
+                                break;
+                            }
+                            // figure out price, will suggest last price for the room
+                            // if never used it will ask for price automatically
+                            var suggestedRate = dao.suggestRatePerNight(con, h, roomNum);
+                            Double rate;
+                            if (suggestedRate.isPresent()) {
+                                System.out.printf("Suggested rate is $%.2f. Enter to accept, or new rate:  ",
+                                        suggestedRate.get());
+                                        String over= in.nextLine().trim();
+                                        rate = over.isEmpty() ? suggestedRate.get() : Double.parseDouble(over);
+                            } else {
+                                System.out.print("No suggested rate found, please enter new one: ");
+                                rate = Double.parseDouble(in.nextLine().trim());
+                            }
+
+                            // get GovernmentId from guest
+                            System.out.print("GovernmentId of guest: ");
+                            String govId = in.nextLine().trim();
+
+                            //gues must exist first due to bad database design, workaround by
+                            //quick creating guest here if not already in db
+
+                            if (!dao.guestExists(con, govId)) {
+                                System.out.print("No guest with that GovernmentID. Create minimal guest now? (Y/N): ");
+                                String ans = in.nextLine().trim().toLowerCase();
+                                if (ans.equals("y") || ans.equals("yes")) {
+                                    System.out.print("Guest name: ");
+                                    String name = in.nextLine().trim();
+                                    int inserted = dao.insertGuestMinimal(con, govId, name.isEmpty() ? "New Guest" : name);
+                                    if (inserted != 1) {
+                                        System.out.println("Could not create guest. Aborting.");
+                                        break;
+                                    }
+                                } else {
+                                    System.out.println("Please create the guest first, then try again.");
+                                    break;
+                                }
+                            }
+
+                            //booking is created here
+                            boolean ok = dao.createReservationIfAvailable(con, h, roomNum, ci, co, rate, govId);
+                            System.out.println(ok ? "Reservation created" : "Reservation not created");
+
+                            // show faux email that we would send to guest. We would later hook this into
+                            // some sort of notification system. Email is only sent to the guest if the
+                            // booking is successful. Starts with if(ok).
+
+                            if (ok) {
+                                var bid = dao.findBookingIdFor(con, h, roomNum, ci, co, govId);
+                                if (bid.isPresent()) {
+                                    var rv = dao.getById(con, bid.get());
+                                    if (rv.isPresent()) {
+                                        var m = rv.get();
+                                        String email = String.valueOf(m.getOrDefault("GuestEmail", "(unknown)"));
+                                        String bookingId = String.valueOf(m.get("BookingID"));
+                                        String guest = String.valueOf(m.get("GuestName"));
+                                        String hotel = String.valueOf(m.get("HotelName"));
+                                        String rn    = String.valueOf(m.get("RoomNumber"));
+                                        var checkIn  = (java.time.LocalDate) m.get("CheckInDate");
+                                        var checkOut = (java.time.LocalDate) m.get("CheckOutDate");
+                                        long nights = java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut);
+                                        double cpn = (double) m.get("CostPerNight");
+                                        double total = nights * cpn;
+
+                                        System.out.println();
+                                        System.out.println("((%s)) to Guest -- booking details".formatted(email));
+                                        System.out.println("Booking: %s".formatted(bookingId));
+                                        System.out.println("Guest  : %s".formatted(guest));
+                                        System.out.println("Hotel  : %s".formatted(hotel));
+                                        System.out.println("Room   : %s".formatted(rn));
+                                        System.out.println("Dates  : %s → %s  (%d nights)".formatted(checkIn, checkOut, nights));
+                                        System.out.println("Rate   : $%.2f/night   Total: $%.2f".formatted(cpn, total));
+                                        System.out.println();
+                                    }
+                                }
+                            }
+
                         }
                         case "3" -> {
                             System.out.print("BookingID: ");

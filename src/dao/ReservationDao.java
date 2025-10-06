@@ -93,7 +93,8 @@ public class ReservationDao {
         String sql = """
             SELECT r.BookingID, r.CheckInDate, r.CheckOutDate, r.CostPerNight,
                    r.RoomNumber, r.HotelID, r.GovernmentID,
-                   g.Name AS GuestName, h.HotelName, h.Address AS HotelAddress
+                   g.Name AS GuestName, g.Email AS GuestEmail,
+                   h.HotelName, h.Address AS HotelAddress
             FROM RESERVATION r
             JOIN GUEST g ON g.GovernmentID = r.GovernmentID
             JOIN HOTEL h ON h.HotelID = r.HotelID
@@ -112,6 +113,7 @@ public class ReservationDao {
                 m.put("HotelID", rs.getString("HotelID"));
                 m.put("GovernmentID", rs.getString("GovernmentID"));
                 m.put("GuestName", rs.getString("GuestName"));
+                m.put("GuestEmail", rs.getString("GuestEmail"));
                 m.put("HotelName", rs.getString("HotelName"));
                 m.put("HotelAddress", rs.getString("HotelAddress"));
                 return Optional.of(m);
@@ -225,6 +227,79 @@ public class ReservationDao {
                 if (!rs.next()) throw new SQLException("Counter row missing (select)");
                 int n = rs.getInt(1) - 1;
                 return "B" + n;
+            }
+        }
+    }
+
+    //reservation rate helper. It asks for a rate if there hasn't been one before
+    // instead of asking for a rate for a room every single time.
+
+    public Optional<Double> suggestRatePerNight(Connection con, String hotelId, String roomNumber) throws SQLException {
+        String sql = """
+        SELECT CostPerNight
+        FROM RESERVATION
+        WHERE HotelID = ? AND RoomNumber = ?
+        ORDER BY CheckInDate DESC
+        LIMIT 1
+    """;
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, hotelId);
+            ps.setString(2, roomNumber);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return Optional.of(rs.getDouble(1));
+                return Optional.empty();
+            }
+        }
+    }
+
+    //couldn't create a reservation without a guest becuse it was a foreign key. Error in
+    // database design
+
+    public boolean guestExists(Connection con, String governmentId) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement(
+                "SELECT 1 FROM GUEST WHERE GovernmentID = ?")) {
+            ps.setString(1, governmentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    public int insertGuestMinimal(Connection con, String governmentId, String name) throws SQLException {
+        String sql = """
+        INSERT INTO GUEST (GovernmentID, Name, Address, Email, PhoneNumber, CardNumber)
+        VALUES (?, ?, 'N/A', 'na@example.com', '000-000-0000', '4000 0000 0000 0000')
+    """;
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, governmentId);
+            ps.setString(2, name);
+            return ps.executeUpdate(); // 1 if inserted
+        }
+    }
+
+    // find bookingId
+    public Optional<String> findBookingIdFor(Connection con,
+                                             String hotelId, String roomNumber,
+                                             LocalDate checkIn, LocalDate checkOut,
+                                             String governmentId) throws SQLException {
+
+        String sql = """
+        SELECT BookingID
+        FROM RESERVATION
+        WHERE HotelID = ? AND RoomNumber = ?
+            AND CheckInDate = ? AND CheckOutDate = ?
+                AND GovernmentID = ?
+        ORDER BY CAST(SUBSTRING(BookingID,2) AS UNSIGNED) DESC
+        LIMIT 1
+    """;
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, hotelId);
+            ps.setString(2, roomNumber);
+            ps.setDate(3, java.sql.Date.valueOf(checkIn));
+            ps.setDate(4, java.sql.Date.valueOf(checkOut));
+            ps.setString(5, governmentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(rs.getString(1)) : Optional.empty();
             }
         }
     }

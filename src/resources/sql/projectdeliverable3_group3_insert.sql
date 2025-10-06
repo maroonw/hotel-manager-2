@@ -35,3 +35,25 @@ INSERT INTO RESERVATION VALUES
 ('B5', '2021-07-30', '2021-08-05', 270, 'R36', 'H2', 'Y012776'),
 ('B6', '2022-01-01', '2022-01-03', 150, 'R2', 'H3', '2917892384014'),
 ('B7', '2021-09-11', '2021-09-15', 125, 'R12', 'H2', 'Y028304');
+
+-- make sure COUNTER table exists
+CREATE TABLE IF NOT EXISTS HOTEL_MANAGEMENT.COUNTER (
+    name     VARCHAR(50) PRIMARY KEY,
+    next_val INT NOT NULL
+    );
+
+-- adds reservation row to counter if missing
+INSERT INTO COUNTER (name, next_val)
+VALUES ('RESERVATION', 1)
+ON DUPLICATE KEY UPDATE next_val = next_val;
+
+--needed to keep booking numbers from overlapping
+UPDATE HOTEL_MANAGEMENT.COUNTER c
+SET c.next_val = (
+    SELECT COALESCE(MAX(n), 0) + 1
+    FROM (
+        SELECT CAST(TRIM(SUBSTRING(BookingID, 2)) AS UNSIGNED) AS n
+        FROM HOTEL_MANAGEMENT.RESERVATION
+    ) AS t
+)
+WHERE c.name = 'RESERVATION';
