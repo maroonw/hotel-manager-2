@@ -50,8 +50,8 @@ Video URL
 TO DO
 
 Contributors:
-
-Julie Bush
-Anthony Tharpe
-William Maroon
+This was typed up by William Maroon, I'm 100% sure I missed some stuff here. The three of us worked really well together.
+Julie Bush - ER Diagram, Query Creation, Code, Testing
+Anthony Tharpe - Class Diagram, Relational Model, Code Set Up, Code, Testing
+William Maroon - Class Diagram, Main Code, Testing
 
