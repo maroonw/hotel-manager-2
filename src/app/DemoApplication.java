@@ -65,6 +65,31 @@ public class DemoApplication {
 
                             System.out.println("INSERT @ " + insertPath);
                             db.Database.runSqlFile(con, insertPath);
+
+                            try (var st = con.createStatement()) {
+                                st.execute("""
+                                    CREATE TABLE IF NOT EXISTS HOTEL_MANAGEMENT.COUNTER(
+                                      name VARCHAR(50) PRIMARY KEY, next_val INT NOT NULL
+                                    );
+                                """);
+                                                            st.execute("""
+                                    INSERT INTO HOTEL_MANAGEMENT.COUNTER(name, next_val)
+                                    VALUES ('RESERVATION', 1)
+                                    ON DUPLICATE KEY UPDATE next_val=next_val;
+                                """);
+                                                            st.execute("""
+                                    UPDATE HOTEL_MANAGEMENT.COUNTER c
+                                    SET c.next_val = (
+                                      SELECT COALESCE(MAX(n), 0) + 1
+                                      FROM (
+                                        SELECT CAST(TRIM(SUBSTRING(BookingID, 2)) AS UNSIGNED) AS n
+                                        FROM HOTEL_MANAGEMENT.RESERVATION
+                                      ) t
+                                    )
+                                    WHERE c.name='RESERVATION';
+                                """);
+                                                        }
+
                         }
                         case "2" -> {
 
@@ -116,16 +141,12 @@ public class DemoApplication {
                                 ci = LocalDate.parse(in.nextLine());
                                 System.out.print("CheckOut (YYYY-MM-DD): ");
                                 co = LocalDate.parse(in.nextLine());
-                                PreparedStatement stmt = con.prepareStatement("select * from reservation where (CheckInDate BETWEEN ? AND ?) OR CheckOutDate BETWEEN ? AND ?;");
-                                stmt.setString(1, ci.toString());
-                                stmt.setString(2, co.toString());
-                                stmt.setString(3, ci.toString());
-                                stmt.setString(4, co.toString());
-                                ResultSet rs = stmt.executeQuery();
-                                if (rs.next()) {
-                                    System.out.println("Date's are not available. Please try again.");
+
+                                if (!co.isAfter(ci)) {
+                                    System.out.println("checkout must be after check in");
                                     break;
                                 }
+
                             } catch (Exception e) {
                                 System.out.println("Invalid date format, please use YYYY-MM-DD format: " + e.getMessage());
                                 break;
@@ -284,7 +305,7 @@ public class DemoApplication {
                                 boolean ok = dao.updateDates(con, b, ni, no);
                                 System.out.println(ok ? "Updated." : "Conflict or booking not found.");
                             } else {
-                                System.out.println("The checkout date must be before the checkin date.\nThis action could not be completed. Please try again.");
+                                System.out.println("The checkout date must be after the checkin date.\nThis action could not be completed. Please try again.");
                                 break;
                             }
                         }
@@ -323,7 +344,7 @@ public class DemoApplication {
                                 var rooms = dao.listAvailableRooms(con, h, ci, co);
                                 rooms.forEach(System.out::println);
                             } else {
-                                System.out.println("The checkout date must be before the checkin date.\nThis action could not be completed. Please try again.");
+                                System.out.println("The checkout date must be after the checkin date.\nThis action could not be completed. Please try again.");
                                 break;
                             }
                         }
