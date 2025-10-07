@@ -4,9 +4,7 @@ import db.Database;
 import dao.ReservationDao;
 
 import java.nio.file.Path;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import java.sql.*;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -92,17 +90,44 @@ public class DemoApplication {
                              */
 
                             // set hotel and date wanted
-                            System.out.print("Enter hotel ID: ");
-                            String h = in.nextLine().trim();
+                            String h;
+                            String roomNum;
+                            LocalDate ci;
+                            LocalDate co;
 
-                            System.out.print("Check in date YYYY-MM-DD: ");
-                            LocalDate ci = LocalDate.parse(in.nextLine().trim());
+                            try {
+                                System.out.print("HotelID: ");
+                                h = in.nextLine();
+                                PreparedStatement stmt = con.prepareStatement("SELECT hotelid FROM hotel WHERE hotelid = ?");
+                                stmt.setString(1, h);
+                                ResultSet rs = stmt.executeQuery();
+                                if (!rs.next()) {
+                                    System.out.println("Hotel ID does not exist. Please try again.");
+                                    break;
+                                }
+                            } catch (Exception e) {
+                                System.out.println("Invalid SQL: " + e.getMessage());
+                                break;
+                            }
 
-                            System.out.print("Check out date YYYY-MM-DD: ");
-                            LocalDate co = LocalDate.parse(in.nextLine().trim());
-
-                            if (!co.isAfter(ci)) {
-                                System.out.println("checkout must be after check in");
+                            // CHECK DATE AVAILABILITY
+                            try {
+                                System.out.print("CheckIn (YYYY-MM-DD): ");
+                                ci = LocalDate.parse(in.nextLine());
+                                System.out.print("CheckOut (YYYY-MM-DD): ");
+                                co = LocalDate.parse(in.nextLine());
+                                PreparedStatement stmt = con.prepareStatement("select * from reservation where (CheckInDate BETWEEN ? AND ?) OR CheckOutDate BETWEEN ? AND ?;");
+                                stmt.setString(1, ci.toString());
+                                stmt.setString(2, co.toString());
+                                stmt.setString(3, ci.toString());
+                                stmt.setString(4, co.toString());
+                                ResultSet rs = stmt.executeQuery();
+                                if (rs.next()) {
+                                    System.out.println("Date's are not available. Please try again.");
+                                    break;
+                                }
+                            } catch (Exception e) {
+                                System.out.println("Invalid date format, please use YYYY-MM-DD format: " + e.getMessage());
                                 break;
                             }
 
@@ -118,7 +143,7 @@ public class DemoApplication {
                             List<String> roomNumbers = new ArrayList<>();
                             for (int i = 0; i < rooms.size(); i++) {
                                 var r = rooms.get(i);
-                                String roomNum = r.get("RoomNumber");
+                                roomNum = r.get("RoomNumber");
                                 roomNumbers.add(roomNum);
 
                                 var oldRate = dao.suggestRatePerNight(con, h, roomNum);
@@ -131,7 +156,7 @@ public class DemoApplication {
 
                             // select room
                             System.out.print("\nChoose Room Number (e.g., R22): ");
-                            String roomNum = in.nextLine().trim();
+                            roomNum = in.nextLine().trim();
 
                             boolean inList = false;
                             for (String rn : roomNumbers) {
@@ -229,30 +254,78 @@ public class DemoApplication {
                             System.out.println(res.map(Object::toString).orElse("Not found"));
                         }
                         case "4" -> {
-                            System.out.print("BookingID: ");
-                            String b = in.nextLine();
-                            System.out.print("New CheckIn: ");
-                            LocalDate ni = LocalDate.parse(in.nextLine());
-                            System.out.print("New CheckOut: ");
-                            LocalDate no = LocalDate.parse(in.nextLine());
-                            boolean ok = dao.updateDates(con, b, ni, no);
-                            System.out.println(ok ? "Updated." : "Conflict or booking not found.");
+                            String b = null;
+                            try {
+                                System.out.print("BookingID: ");
+                                b = in.nextLine();
+                                PreparedStatement stmt = con.prepareStatement("SELECT BookingID FROM reservation WHERE BookingID = ?");
+                                stmt.setString(1, b);
+                                ResultSet rs = stmt.executeQuery();
+                                if (!rs.next()) {
+                                    System.out.println("Booking ID does not exist. Please try again.");
+                                    break;
+                                }
+                            } catch (SQLException e){
+                                System.out.println("Invalid SQL Statement: " + e.getMessage());
+                                break;
+                            }
+                            LocalDate ni = null;
+                            LocalDate no = null;
+                            try {
+                                System.out.print("New CheckIn (YYYY-MM-DD): ");
+                                ni = LocalDate.parse(in.nextLine());
+                                System.out.print("New CheckOut (YYYY-MM-DD): ");
+                                no = LocalDate.parse(in.nextLine());
+                            } catch (Exception e) {
+                                System.out.println("Invalid date format, please use YYYY-MM-DD format when you try again: " + e.getMessage());
+                                break;
+                            }
+                            if (ni.isBefore(no)) {
+                                boolean ok = dao.updateDates(con, b, ni, no);
+                                System.out.println(ok ? "Updated." : "Conflict or booking not found.");
+                            } else {
+                                System.out.println("The checkout date must be before the checkin date.\nThis action could not be completed. Please try again.");
+                                break;
+                            }
                         }
                         case "5" -> {
                             System.out.print("BookingID: ");
                             String b = in.nextLine();
                             int n = dao.delete(con, b);
-                            System.out.println(n == 1 ? "Deleted." : "Not found.");
+                            System.out.println(n == 1 ? "Deleted." : "Booking ID does not exist. Please try again.");
                         }
                         case "6" -> {
                             System.out.print("HotelID: ");
                             String h = in.nextLine();
-                            System.out.print("CheckIn: ");
-                            LocalDate ci = LocalDate.parse(in.nextLine());
-                            System.out.print("CheckOut: ");
-                            LocalDate co = LocalDate.parse(in.nextLine());
-                            var rooms = dao.listAvailableRooms(con, h, ci, co);
-                            rooms.forEach(System.out::println);
+                            try {
+                                PreparedStatement stmt = con.prepareStatement("SELECT hotelid FROM hotel WHERE hotelid = ?");
+                                stmt.setString(1, h);
+                                ResultSet rs = stmt.executeQuery();
+                                if (!rs.next()) {
+                                    System.out.println("Hotel ID does not exist. Please try again.");
+                                    break;
+                                }
+                            } catch (Exception e) {
+                                System.out.println("Invalid SQL: " + e.getMessage());
+                            }
+                            LocalDate ci = null;
+                            LocalDate co = null;
+                            try {
+                                System.out.print("CheckIn Date (YYYY-MM-DD): ");
+                                ci = LocalDate.parse(in.nextLine());
+                                System.out.print("CheckOut Date (YYYY-MM-DD): ");
+                                co = LocalDate.parse(in.nextLine());
+                            } catch (Exception e) {
+                                System.out.println("Invalid date format, please use YYYY-MM-DD format when you try again: " + e.getMessage());
+                                break;
+                            }
+                            if (ci.isBefore(co)) {
+                                var rooms = dao.listAvailableRooms(con, h, ci, co);
+                                rooms.forEach(System.out::println);
+                            } else {
+                                System.out.println("The checkout date must be before the checkin date.\nThis action could not be completed. Please try again.");
+                                break;
+                            }
                         }
                         case "0" -> {
                             System.out.println("Bye!");
